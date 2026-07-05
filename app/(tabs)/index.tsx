@@ -19,24 +19,31 @@ export default function MapScreen() {
   const [query, setQuery] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
+    // Show central London straight away so live data always loads, even if the
+    // browser/device blocks or ignores the location prompt. We only *upgrade* to
+    // the real position if geolocation succeeds.
+    setCoords((prev) => prev ?? { lat: LONDON.latitude, lon: LONDON.longitude });
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setCoords({ lat: LONDON.latitude, lon: LONDON.longitude });
-        return;
-      }
       try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
         const pos = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
-        setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        if (!cancelled) {
+          setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        }
       } catch {
-        setCoords({ lat: LONDON.latitude, lon: LONDON.longitude });
+        // Keep the London fallback already set above.
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const { data: stops } = useNearbyStops(coords);
+  const { data: stops, isLoading, isError, refetch } = useNearbyStops(coords);
 
   const region = {
     latitude: coords?.lat ?? LONDON.latitude,
@@ -56,6 +63,9 @@ export default function MapScreen() {
         stops={stops ?? []}
         onSelectStop={setSelected}
         showsUser={!!coords}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={refetch}
       />
 
       <SafeAreaView style={styles.searchWrap} edges={['top']} pointerEvents="box-none">
@@ -70,12 +80,19 @@ export default function MapScreen() {
         </View>
       </SafeAreaView>
 
-      {!coords && (
+      {isError ? (
+        <Pressable style={styles.locating} onPress={() => refetch()}>
+          <Ionicons name="warning" size={16} color="#B00020" />
+          <Text style={[styles.locatingText, { color: '#B00020' }]}>
+            Couldn’t reach TfL — tap to retry
+          </Text>
+        </Pressable>
+      ) : isLoading ? (
         <View style={styles.locating} pointerEvents="none">
           <Ionicons name="locate" size={16} color="#0057A8" />
-          <Text style={styles.locatingText}>Finding your location…</Text>
+          <Text style={styles.locatingText}>Loading nearby stops…</Text>
         </View>
-      )}
+      ) : null}
 
       <ArrivalsSheet stop={selected} onClose={() => setSelected(null)} />
     </View>

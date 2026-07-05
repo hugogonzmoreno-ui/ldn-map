@@ -13,6 +13,11 @@ interface Props {
   stops: Stop[];
   onSelectStop: (stop: Stop) => void;
   showsUser: boolean;
+  // Accepted for parity with the web map (which shows a loading/error banner);
+  // on native the map itself is always visible so these are unused.
+  isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
 }
 
 /**
