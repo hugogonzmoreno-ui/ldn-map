@@ -117,12 +117,67 @@ export async function searchStops(query: string): Promise<Stop[]> {
   }));
 }
 
-/** Live arrival predictions for a stop, soonest first. */
+/** Stop types that report their own arrival predictions. */
+const ARRIVAL_STOP_TYPES = new Set([
+  'NaptanMetroStation',
+  'NaptanRailStation',
+  'NaptanPublicBusCoachTram',
+]);
+
+/**
+ * Descendant stop ids of a hub / parent station (e.g. "Canary Wharf" the hub
+ * contains the Jubilee, DLR and Elizabeth line stations). Hubs report no
+ * arrivals themselves — their children do.
+ */
+async function getChildStopIds(stopId: string): Promise<string[]> {
+  try {
+    const detail = await getJson<RawStopPoint>(
+      `/StopPoint/${encodeURIComponent(stopId)}`
+    );
+    const ids = new Set<string>();
+    const walk = (sp: RawStopPoint, depth: number) => {
+      const id = sp.id ?? sp.naptanId;
+      if (id && id !== stopId && ARRIVAL_STOP_TYPES.has(sp.stopType ?? '')) {
+        ids.add(id);
+      }
+      if (depth < 2) (sp.children ?? []).forEach((c) => walk(c, depth + 1));
+    };
+    walk(detail, 0);
+    return [...ids];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Live arrival predictions for a stop, soonest first. If the stop itself has
+ * no predictions (typical for hubs / parent interchanges), aggregate the
+ * arrivals of its child stations instead.
+ */
 export async function getArrivals(stopId: string): Promise<Arrival[]> {
-  const data = await getJson<RawPrediction[]>(
+  let predictions = await getJson<RawPrediction[]>(
     `/StopPoint/${encodeURIComponent(stopId)}/Arrivals`
   );
-  return data
+  if (predictions.length === 0) {
+    // Cap fan-out to keep well within keyless rate limits.
+    const childIds = (await getChildStopIds(stopId)).slice(0, 8);
+    if (childIds.length > 0) {
+      const results = await Promise.all(
+        childIds.map((id) =>
+          getJson<RawPrediction[]>(
+            `/StopPoint/${encodeURIComponent(id)}/Arrivals`
+          ).catch(() => [] as RawPrediction[])
+        )
+      );
+      const seen = new Set<string>();
+      predictions = results.flat().filter((p) => {
+        if (seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      });
+    }
+  }
+  return predictions
     .map((p) => normaliseArrival(p))
     .sort((a, b) => a.timeToStation - b.timeToStation);
 }

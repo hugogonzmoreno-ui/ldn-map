@@ -25,6 +25,7 @@ export interface RawStopPoint {
   distance?: number;
   modes?: string[];
   lines?: { id: string; name: string }[];
+  children?: RawStopPoint[];
 }
 
 /** Wrapper for /StopPoint?lat=&lon=... */

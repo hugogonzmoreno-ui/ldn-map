@@ -1,4 +1,5 @@
 import {
+  getArrivals,
   normaliseArrival,
   normaliseJourney,
   normaliseLineStatus,
@@ -32,6 +33,73 @@ describe('normaliseArrival', () => {
       'Check front of vehicle'
     );
     expect(normaliseArrival({ id: '3' }).timeToStation).toBe(0);
+  });
+});
+
+describe('getArrivals hub fallback', () => {
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+
+  it('aggregates children arrivals when a hub itself reports none', async () => {
+    const pred = (id: string, timeToStation: number): RawPrediction => ({
+      id,
+      lineId: 'jubilee',
+      lineName: 'Jubilee',
+      destinationName: 'Stratford',
+      timeToStation,
+      modeName: 'tube',
+    });
+    const respond = (url: string): unknown => {
+      if (url.includes('/StopPoint/HUBCW/Arrivals')) return [];
+      if (url.includes('/StopPoint/HUBCW'))
+        return {
+          id: 'HUBCW',
+          stopType: 'TransportInterchange',
+          children: [
+            { id: '940TUBE', stopType: 'NaptanMetroStation' },
+            { id: '910RAIL', stopType: 'NaptanRailStation' },
+            { id: 'ENTRANCE', stopType: 'NaptanMetroEntrance' },
+          ],
+        };
+      if (url.includes('/StopPoint/940TUBE/Arrivals')) return [pred('a', 120)];
+      if (url.includes('/StopPoint/910RAIL/Arrivals')) return [pred('b', 60)];
+      throw new Error(`unexpected url ${url}`);
+    };
+    const fetchMock = jest.fn(async (url: string) => ({
+      ok: true,
+      json: async () => respond(url),
+    }));
+    global.fetch = fetchMock as never;
+
+    const arrivals = await getArrivals('HUBCW');
+
+    expect(arrivals.map((a) => a.id)).toEqual(['b', 'a']); // soonest first
+    const requested = fetchMock.mock.calls.map((c) => String(c[0]));
+    // Entrances are not arrival-capable and must not be queried.
+    expect(requested.some((u) => u.includes('ENTRANCE'))).toBe(false);
+  });
+
+  it('does not fetch children when the stop has its own arrivals', async () => {
+    const fetchMock = jest.fn(async () => ({
+      ok: true,
+      json: async () => [
+        {
+          id: 'x',
+          lineName: 'Victoria',
+          destinationName: 'Brixton',
+          timeToStation: 90,
+          modeName: 'tube',
+        },
+      ],
+    }));
+    global.fetch = fetchMock as never;
+
+    const arrivals = await getArrivals('940GZZLUVIC');
+
+    expect(arrivals).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 
