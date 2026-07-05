@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Hop London",
+    "slug": "ldn-map",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "hoplondon",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Hop London uses your location to show nearby stops and live arrivals."
+      }
+    },
+    "android": {
+      "package": "com.hoplondon.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Hop London uses your location to show nearby stops and live arrivals."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
