@@ -52,6 +52,11 @@ export function decodeLineString(
   }
 }
 
+/** Drop station-type suffixes: "Oxford Circus Underground Station" -> "Oxford Circus". */
+export function stripStationSuffix(name: string): string {
+  return name.replace(/ (Underground|Rail|DLR) Station$/i, '').trim();
+}
+
 /** Title-case a hyphenated mode id, e.g. "elizabeth-line" -> "Elizabeth line". */
 export function prettyMode(mode: string): string {
   const label = mode.replace(/-/g, ' ');

@@ -47,20 +47,44 @@ export interface RawSearchResponse {
   total?: number;
 }
 
-/** Raw arrival prediction from /StopPoint/{id}/Arrivals. */
+/** Raw arrival prediction from /StopPoint/{id}/Arrivals and /Line/{id}/Arrivals. */
 export interface RawPrediction {
   id: string;
+  vehicleId?: string;
   naptanId?: string;
   stationName?: string;
   lineId?: string;
   lineName?: string;
   platformName?: string;
-  direction?: string;
+  direction?: string; // 'inbound' | 'outbound'
   destinationName?: string;
   towards?: string;
   timeToStation?: number; // seconds
   expectedArrival?: string; // ISO
+  currentLocation?: string; // e.g. "Between Oxford Circus and Bond Street"
   modeName?: string;
+}
+
+/** Raw stop within /Line/{id}/Route/Sequence stopPointSequences. */
+export interface RawRouteSequenceStop {
+  id?: string;
+  stationId?: string;
+  name?: string;
+  lat?: number;
+  lon?: number;
+}
+
+export interface RawStopPointSequence {
+  direction?: string;
+  branchId?: number;
+  stopPoint?: RawRouteSequenceStop[];
+}
+
+/** Raw response of /Line/{id}/Route/Sequence/all. */
+export interface RawRouteSequence {
+  lineId?: string;
+  lineStrings?: string[];
+  stopPointSequences?: RawStopPointSequence[];
 }
 
 /** Raw line status from /Line/Mode/{modes}/Status. */
@@ -112,10 +136,16 @@ export interface RawJourneyResponse {
   journeys?: RawJourney[];
 }
 
+/** One side of an HTTP 300 journey disambiguation response. */
+export interface RawDisambiguationSide {
+  matchStatus?: string; // 'identified' | 'list' | 'empty'
+  disambiguationOptions?: { parameterValue?: string }[];
+}
+
 /** Returned (HTTP 300) when from/to is ambiguous. */
 export interface RawDisambiguation {
-  fromLocationDisambiguation?: { disambiguationOptions?: unknown[] };
-  toLocationDisambiguation?: { disambiguationOptions?: unknown[] };
+  fromLocationDisambiguation?: RawDisambiguationSide;
+  toLocationDisambiguation?: RawDisambiguationSide;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,4 +207,41 @@ export interface Journey {
   durationMins: number;
   changes: number;
   legs: JourneyLeg[];
+}
+
+export interface LatLng {
+  latitude: number;
+  longitude: number;
+}
+
+export interface RouteStop {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+}
+
+export interface RouteSequence {
+  direction: string; // 'inbound' | 'outbound' | ''
+  stops: RouteStop[];
+}
+
+/** Normalised /Line/{id}/Route/Sequence/all: geometry + ordered stations. */
+export interface LineRoute {
+  lineId: string;
+  polylines: LatLng[][];
+  sequences: RouteSequence[];
+}
+
+/** A live train position derived from its arrival predictions. */
+export interface TrainPosition {
+  vehicleId: string;
+  lat: number;
+  lon: number;
+  lineId: string;
+  towards: string;
+  /** Human location, e.g. "Between Oxford Circus and Bond Street". */
+  label: string;
+  nextStopName: string;
+  timeToNext: number; // seconds
 }

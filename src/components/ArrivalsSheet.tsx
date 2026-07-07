@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -25,9 +26,18 @@ interface Props {
  */
 export default function ArrivalsSheet({ stop, onClose }: Props) {
   const insets = useSafeAreaInsets();
-  const { data, isLoading, isError, refetch, isFetching } = useArrivals(
-    stop?.id ?? null
-  );
+  const { data, isLoading, isError, refetch, isFetching, dataUpdatedAt } =
+    useArrivals(stop?.id ?? null);
+
+  // Tick every 10s so countdowns visibly decrease between the 30s refetches.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!stop) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 10_000);
+    return () => clearInterval(t);
+  }, [stop]);
+  const elapsedSec = dataUpdatedAt ? Math.max(0, (now - dataUpdatedAt) / 1000) : 0;
 
   return (
     <Modal
@@ -83,7 +93,14 @@ export default function ArrivalsSheet({ stop, onClose }: Props) {
             data={data ?? []}
             keyExtractor={(a) => a.id}
             style={styles.list}
-            renderItem={({ item }) => <ArrivalRow arrival={item} />}
+            renderItem={({ item }) => (
+              <ArrivalRow
+                arrival={{
+                  ...item,
+                  timeToStation: Math.max(0, item.timeToStation - elapsedSec),
+                }}
+              />
+            )}
             ListEmptyComponent={
               <Text style={styles.muted}>No arrivals predicted right now.</Text>
             }

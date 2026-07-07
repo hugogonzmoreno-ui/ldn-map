@@ -1,0 +1,57 @@
+name: Deploy web to GitHub Pages
+
+on:
+  push:
+    branches:
+      - claude/tfl-realtime-transport-app-dj65l2
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npx expo export --platform web
+        env:
+          # GitHub Pages serves the site from /<repo>/ — bake that base path in.
+          EXPO_BASE_URL: /ldn-map
+
+      - name: Add SPA fallback
+        run: cp dist/index.html dist/404.html
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

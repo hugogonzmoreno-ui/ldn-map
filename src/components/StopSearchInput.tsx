@@ -46,7 +46,7 @@ export default function StopSearchInput({
           value={value}
           onChangeText={onChangeText}
           onFocus={() => setFocused(true)}
-          onBlur={() => setTimeout(() => setFocused(false), 150)}
+          onBlur={() => setTimeout(() => setFocused(false), 250)}
           autoCorrect={false}
         />
         {isFetching && showResults && <ActivityIndicator size="small" />}
@@ -65,7 +65,8 @@ export default function StopSearchInput({
             keyboardShouldPersistTaps="handled"
             style={{ maxHeight: 220 }}
             renderItem={({ item }) => (
-              <Pressable style={styles.result} onPress={() => onSelect(item)}>
+              // onPressIn: fire before the TextInput's blur can hide the list.
+              <Pressable style={styles.result} onPressIn={() => onSelect(item)}>
                 <Ionicons
                   name="location"
                   size={16}

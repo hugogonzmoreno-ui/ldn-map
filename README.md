@@ -2,92 +2,103 @@
 
 A real-time **London transport** app (Tube, bus, DLR, Overground, Elizabeth line,
 tram & rail) in the spirit of Citymapper — built with **React Native + Expo** and
-powered by the live **TfL Unified API**.
+powered by the live **TfL Unified API**. Runs natively on iOS/Android (Expo Go) and
+as a full web app in any browser.
 
-## Features (v1)
+## ✨ Features (v2)
 
-- **🗺️ Live map + arrivals** — an OpenStreetMap map centred on your location with
-  nearby stops/stations. Tap a stop to see live arrivals with counting-down
-  minutes, the destination and the platform.
-- **🧭 Journey planner** — enter from/to (with live stop suggestions or "use my
-  location") and compare route options: duration, departure/arrival times, line
-  badges and number of changes. Open a route for step-by-step legs (walk / line /
-  platform / timings) and a route overview map.
-- **📊 Line status** — live status for every Tube, Overground, Elizabeth line, DLR
-  and tram line, colour-coded, with disruption reasons.
+- **🗺️ Map + live arrivals** — interactive OpenStreetMap map with nearby
+  stops/stations (search included). Tap a stop for live arrivals: line badge,
+  destination, platform, and countdowns that tick down in real time. Big
+  interchanges (Canary Wharf, King's Cross…) aggregate arrivals from every
+  station inside them.
+- **🚆 Live trains** — pick any Tube/Elizabeth/DLR/Overground line and watch its
+  trains move on the map in (near) real time. TfL publishes no GPS feed, so
+  positions are derived the way Citymapper does it: each train's arrival
+  predictions are interpolated along the line's route geometry. Refreshes every
+  20 seconds; tap a train for where it is and what it's heading towards.
+- **🧭 Journey planner** — from/to with live stop suggestions and "use my
+  location"; compares route options (duration, times, line badges, changes) with
+  step-by-step legs (walk / line / platform / timings) and a route overview map.
+  Ambiguous endpoints are auto-resolved via TfL's disambiguation.
+- **📊 Line status** — colour-coded live status for every line with disruption
+  reasons, and a shortcut from any line straight to its live train map.
 
-Real-time is driven by polling: arrivals refresh every 30s, line status every 60s.
+## 🚀 Run it
 
-## Tech stack
+### Web (zero setup)
 
-| Concern        | Choice                                                        |
-| -------------- | ------------------------------------------------------------ |
-| Framework      | Expo (React Native) + TypeScript                             |
-| Navigation     | `expo-router` (file-based, bottom tabs)                      |
-| Maps           | `react-native-maps` + free **OpenStreetMap** raster tiles    |
-| Data fetching  | `@tanstack/react-query` with polling                         |
-| Location       | `expo-location`                                              |
-| Transport data | [TfL Unified API](https://api.tfl.gov.uk) — **no key needed**|
+Every push to the main working branch auto-deploys the web app to **GitHub
+Pages** via `.github/workflows/deploy-web.yml`:
 
-## Getting started
+> **https://hugogonzmoreno-ui.github.io/ldn-map/**
+
+> Note: on a Free GitHub plan, Pages requires the repository to be **public**.
+> If the deploy workflow fails with a Pages-enablement error, either make the
+> repo public (Settings → General → Danger Zone) or upgrade the plan, then
+> re-run the workflow.
+
+### On your phone (native, via Expo Go)
 
 ```bash
 npm install
-npx expo start
+npx expo start          # add --tunnel if phone and computer are on different networks
 ```
 
-Then press `i` (iOS simulator), `a` (Android emulator), or scan the QR code with
-**Expo Go** on your phone. `w` opens a web preview (the interactive map runs on
-device; web shows a nearby-stops list fallback).
+Scan the QR with the Expo Go app (iOS/Android). Location permission enables
+"nearby stops"; without it the app defaults to central London.
 
-### API key (optional)
-
-The app works **without any API key** at low request volumes. For higher rate
-limits, register a free key at <https://api-portal.tfl.gov.uk/>, then:
+### Tests & checks
 
 ```bash
-cp .env.example .env
-# set EXPO_PUBLIC_TFL_APP_KEY=your_key
-```
-
-### Maps note
-
-The map uses free OpenStreetMap tiles over the platform's default base map (Apple
-Maps on iOS). This is keyless for iOS and Expo Go. A standalone **Android**
-production build additionally needs either a free Google Maps API key
-(`react-native-maps` requirement) or a switch to MapLibre — not required for
-development or demos.
-
-## Project structure
-
-```
-app/                     # expo-router routes
-  (tabs)/                #   bottom-tab screens
-    index.tsx            #     Map + live arrivals
-    plan.tsx             #     Journey planner
-    status.tsx           #     Line status
-  journey/[id].tsx       #   Journey detail (legs + route map)
-  _layout.tsx            #   Root: React Query provider + navigation
-src/
-  services/tfl.ts        # Typed TfL Unified API client
-  hooks/useTfl.ts        # React Query hooks (polling)
-  components/            # LineBadge, ArrivalRow, StatusChip, MapPanel, …
-  constants/lines.ts     # Official TfL line colours + mode icons
-  utils/format.ts        # Countdown / time / path helpers
-  types/tfl.ts           # Raw API + normalised view-model types
-```
-
-`MapPanel` and `RouteMiniMap` have `.web.tsx` fallbacks so the app also bundles
-for web (where `react-native-maps` has no renderer).
-
-## Scripts
-
-```bash
-npm test         # Jest unit tests (TfL response normalisation)
+npm test                # Jest — TfL normalisation + train-position engine
 npm run typecheck
 ```
 
-## Roadmap (deferred)
+## 🔑 API key (optional)
 
-Favourites + "time to leave" push notifications, live bus vehicle positions on the
-map, fares, and offline caching.
+Works **without any key** at low request volumes. For higher limits, get a free
+key at <https://api-portal.tfl.gov.uk/> and:
+
+```bash
+cp .env.example .env    # set EXPO_PUBLIC_TFL_APP_KEY=your_key
+```
+
+## 🏗️ How it works
+
+| Concern        | Choice                                                          |
+| -------------- | --------------------------------------------------------------- |
+| Framework      | Expo SDK 52 (React Native) + TypeScript, expo-router tabs       |
+| Maps           | Native: `react-native-maps` + OSM tiles · Web: **Leaflet** + OSM |
+| Data           | TfL Unified API (keyless), `@tanstack/react-query` polling      |
+| Live arrivals  | 30s refetch + 10s local tick so countdowns keep moving          |
+| Live trains    | `/Line/{id}/Arrivals` grouped by `vehicleId`, interpolated along `/Line/{id}/Route/Sequence/all` geometry, 20s refetch |
+| Hosting (web)  | GitHub Actions → GitHub Pages (`EXPO_BASE_URL=/ldn-map`)        |
+
+```
+app/                     # expo-router routes
+  (tabs)/index.tsx       #   Map + live arrivals
+  (tabs)/trains.tsx      #   Live trains map
+  (tabs)/plan.tsx        #   Journey planner
+  (tabs)/status.tsx      #   Line status
+  journey/[id].tsx       #   Journey detail (legs + route map)
+src/
+  services/tfl.ts        # Typed TfL client (timeouts, hub fallback, 300-retry)
+  utils/trains.ts        # Train-position engine (pure, unit-tested)
+  hooks/useTfl.ts        # React Query hooks (polling intervals)
+  components/            # MapPanel / TrainMap / RouteMiniMap (+ .web.tsx twins),
+                         # LineBadge, ArrivalRow, StatusChip, …
+  constants/lines.ts     # Official TfL line colours, tracked lines
+```
+
+Components with a `.web.tsx` twin use Leaflet on the web and
+`react-native-maps` natively — Metro picks the right file per platform, so
+Leaflet never enters the native bundle.
+
+Maps note: iOS/Expo Go and web are fully keyless. A standalone **Android**
+production build would need a free Google Maps key (react-native-maps
+requirement) or a switch to MapLibre.
+
+## 🗺️ Roadmap
+
+Favourites + "time to leave" notifications, fares, dark theme, offline caching.

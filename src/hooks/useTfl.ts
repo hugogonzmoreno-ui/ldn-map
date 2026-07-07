@@ -4,6 +4,8 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   getArrivals,
+  getLineArrivals,
+  getLineRoute,
   getLineStatuses,
   getNearbyStops,
   JourneyOptions,
@@ -49,6 +51,28 @@ export function useStopSearch(query: string) {
     queryFn: () => searchStops(query),
     enabled: query.trim().length >= 2,
     staleTime: 5 * 60_000,
+  });
+}
+
+/** Route geometry for a line — effectively static, cache for the session. */
+export function useLineRoute(lineId: string | null) {
+  return useQuery({
+    queryKey: ['lineRoute', lineId],
+    queryFn: () => getLineRoute(lineId!),
+    enabled: !!lineId,
+    staleTime: Infinity,
+    gcTime: 60 * 60_000,
+  });
+}
+
+/** All live arrivals on a line, polled to animate the train map. */
+export function useLineArrivals(lineId: string | null) {
+  return useQuery({
+    queryKey: ['lineArrivals', lineId],
+    queryFn: () => getLineArrivals(lineId!),
+    enabled: !!lineId,
+    refetchInterval: 20_000,
+    staleTime: 10_000,
   });
 }
 

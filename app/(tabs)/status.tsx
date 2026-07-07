@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +12,7 @@ import {
 } from 'react-native';
 import LineBadge from '@/components/LineBadge';
 import StatusChip from '@/components/StatusChip';
+import { TRACKED_LINES } from '@/constants/lines';
 import { useLineStatuses } from '@/hooks/useTfl';
 import { prettyMode } from '@/utils/format';
 import type { LineStatus } from '@/types/tfl';
@@ -17,6 +20,7 @@ import type { LineStatus } from '@/types/tfl';
 const MODE_ORDER = ['tube', 'elizabeth-line', 'overground', 'dlr', 'tram'];
 
 export default function StatusScreen() {
+  const router = useRouter();
   const { data, isLoading, isError, refetch, isRefetching } = useLineStatuses();
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -73,10 +77,20 @@ export default function StatusScreen() {
         >
           <View style={styles.rowTop}>
             <LineBadge lineId={item.id} label={item.name} mode={item.modeName} />
-            <StatusChip
-              description={item.statusDescription}
-              hasDisruption={item.hasDisruption}
-            />
+            <View style={styles.rowRight}>
+              <StatusChip
+                description={item.statusDescription}
+                hasDisruption={item.hasDisruption}
+              />
+              {TRACKED_LINES.some((l) => l.id === item.id) && (
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => router.push(`/(tabs)/trains?line=${item.id}`)}
+                >
+                  <Ionicons name="map-outline" size={20} color="#0057A8" />
+                </Pressable>
+              )}
+            </View>
           </View>
           {item.reason && expanded === item.id && (
             <Text style={styles.reason}>{item.reason}</Text>
@@ -84,6 +98,9 @@ export default function StatusScreen() {
         </Pressable>
       )}
       contentContainerStyle={{ paddingBottom: 32 }}
+      ListFooterComponent={
+        <Text style={styles.footer}>Hop London v2.0 · Powered by TfL Open Data</Text>
+      }
     />
   );
 }
@@ -114,6 +131,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
+  rowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   reason: {
     marginTop: 10,
     fontSize: 14,
@@ -122,4 +144,10 @@ const styles = StyleSheet.create({
   },
   muted: { color: '#888', fontSize: 15 },
   retry: { color: '#0057A8', fontWeight: '600', fontSize: 15 },
+  footer: {
+    textAlign: 'center',
+    color: '#B0B0B0',
+    fontSize: 12,
+    paddingTop: 16,
+  },
 });

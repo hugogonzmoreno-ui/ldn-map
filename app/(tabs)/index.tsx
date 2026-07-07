@@ -54,6 +54,11 @@ export default function MapScreen() {
   const onSelectSearchStop = useCallback((stop: Stop) => {
     setQuery('');
     setSelected(stop);
+    // Jump the map (and the nearby-stops query) to the searched stop. Search
+    // matches occasionally lack coordinates — keep the current view then.
+    if (stop.lat && stop.lon) {
+      setCoords({ lat: stop.lat, lon: stop.lon });
+    }
   }, []);
 
   return (

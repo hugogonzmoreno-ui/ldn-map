@@ -4,7 +4,7 @@ import MapView, {
   Region,
   UrlTile,
 } from 'react-native-maps';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { modeColor } from '@/constants/lines';
 import type { Stop } from '@/types/tfl';
 
@@ -57,6 +57,20 @@ export default function MapPanel({
           />
         ))}
       </MapView>
+      <Text style={styles.attribution}>© OpenStreetMap contributors</Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  attribution: {
+    position: 'absolute',
+    bottom: 2,
+    right: 4,
+    fontSize: 10,
+    color: '#555',
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    paddingHorizontal: 4,
+    borderRadius: 3,
+  },
+});

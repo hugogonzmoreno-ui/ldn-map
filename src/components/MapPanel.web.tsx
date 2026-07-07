@@ -18,15 +18,10 @@ interface Props {
  * Real interactive map for the web build, using Leaflet + free OpenStreetMap
  * tiles. On Expo web the renderer is react-dom, so this `.web.tsx` file can
  * return real DOM and drive Leaflet directly. Native uses `MapPanel.tsx`.
+ * Loading/error banners are rendered by the screen (like on native), so the
+ * isLoading/isError/onRetry props are accepted but unused here.
  */
-export default function MapPanel({
-  region,
-  stops,
-  onSelectStop,
-  isLoading,
-  isError,
-  onRetry,
-}: Props) {
+export default function MapPanel({ region, stops, onSelectStop }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
@@ -82,29 +77,6 @@ export default function MapPanel({
   return (
     <div style={{ position: 'relative', flexGrow: 1, minHeight: 0 }}>
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
-      {(isLoading || isError) && (
-        <div
-          onClick={isError ? onRetry : undefined}
-          style={{
-            position: 'absolute',
-            top: 70,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 1000,
-            background: '#fff',
-            borderRadius: 20,
-            padding: '8px 14px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            fontSize: 13,
-            fontWeight: 600,
-            color: isError ? '#B00020' : '#0057A8',
-            cursor: isError ? 'pointer' : 'default',
-            fontFamily: 'system-ui, sans-serif',
-          }}
-        >
-          {isError ? 'Couldn’t reach TfL — tap to retry' : 'Loading nearby stops…'}
-        </div>
-      )}
     </div>
   );
 }

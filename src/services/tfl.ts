@@ -8,11 +8,15 @@ import {
   Arrival,
   Journey,
   JourneyLeg,
+  LineRoute,
   LineStatus,
+  RawDisambiguation,
+  RawDisambiguationSide,
   RawJourney,
   RawJourneyResponse,
   RawLine,
   RawPrediction,
+  RawRouteSequence,
   RawSearchResponse,
   RawStopPoint,
   RawStopPointsResponse,
@@ -20,6 +24,7 @@ import {
   TflMode,
 } from '@/types/tfl';
 import { decodeLineString } from '@/utils/format';
+import { decodeRouteLineStrings } from '@/utils/trains';
 
 const BASE_URL = 'https://api.tfl.gov.uk';
 
@@ -50,10 +55,22 @@ function buildUrl(path: string, params: Record<string, string> = {}): string {
   return url.toString();
 }
 
+const FETCH_TIMEOUT_MS = 15_000;
+
+/** fetch that gives up after FETCH_TIMEOUT_MS instead of hanging on bad mobile signal. */
+async function fetchWithTimeout(url: string): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function getJson<T>(path: string, params?: Record<string, string>): Promise<T> {
-  const res = await fetch(buildUrl(path, params));
+  const res = await fetchWithTimeout(buildUrl(path, params));
   if (!res.ok) {
-    // 300 = journey disambiguation; surface a friendly message upstream.
     throw new Error(`TfL API error ${res.status}`);
   }
   return (await res.json()) as T;
@@ -225,6 +242,41 @@ export function normaliseLineStatus(line: RawLine): LineStatus {
   };
 }
 
+/**
+ * A line's route geometry and ordered station sequences (both directions),
+ * used by the live train map. Geometry rarely changes — cache aggressively.
+ */
+export async function getLineRoute(lineId: string): Promise<LineRoute> {
+  const data = await getJson<RawRouteSequence>(
+    `/Line/${encodeURIComponent(lineId)}/Route/Sequence/all`,
+    { serviceTypes: 'Regular' }
+  );
+  const sequences = (data.stopPointSequences ?? []).map((seq) => ({
+    direction: seq.direction ?? '',
+    stops: (seq.stopPoint ?? [])
+      .map((p) => ({
+        id: p.stationId ?? p.id ?? '',
+        name: p.name ?? '',
+        lat: p.lat ?? 0,
+        lon: p.lon ?? 0,
+      }))
+      .filter((s) => s.id !== '' && s.lat !== 0 && s.lon !== 0),
+  }));
+  let polylines = decodeRouteLineStrings(data.lineStrings);
+  if (polylines.length === 0) {
+    // Fallback: connect the station dots if TfL sent no geometry.
+    polylines = sequences
+      .map((s) => s.stops.map((st) => ({ latitude: st.lat, longitude: st.lon })))
+      .filter((line) => line.length > 1);
+  }
+  return { lineId, polylines, sequences };
+}
+
+/** Every live arrival prediction on a line (one per train per upcoming stop). */
+export async function getLineArrivals(lineId: string): Promise<RawPrediction[]> {
+  return getJson<RawPrediction[]>(`/Line/${encodeURIComponent(lineId)}/Arrivals`);
+}
+
 export interface JourneyOptions {
   /** 'departing' | 'arriving' — how `dateTime` is interpreted. */
   timeIs?: 'departing' | 'arriving';
@@ -233,10 +285,26 @@ export interface JourneyOptions {
   time?: string; // HHmm
 }
 
+async function fetchJourneyRaw(
+  from: string,
+  to: string,
+  params: Record<string, string>
+): Promise<{ status: number; body: (RawJourneyResponse & RawDisambiguation) | null }> {
+  const url = buildUrl(
+    `/Journey/JourneyResults/${encodeURIComponent(from)}/to/${encodeURIComponent(to)}`,
+    params
+  );
+  const res = await fetchWithTimeout(url);
+  // 300 carries a disambiguation body we still need to read.
+  const body = res.ok || res.status === 300 ? await res.json() : null;
+  return { status: res.status, body };
+}
+
 /**
  * Plan a journey between two points. `from`/`to` may be a stop id, a "lat,lon"
- * string, or a postcode/place name. Throws with a friendly message when TfL
- * cannot resolve the endpoints (HTTP 300 disambiguation).
+ * string, or a postcode/place name. When TfL answers HTTP 300 (ambiguous
+ * endpoint — common for hub ids picked from search), retry once with TfL's own
+ * best disambiguation match for each side.
  */
 export async function planJourney(
   from: string,
@@ -248,18 +316,26 @@ export async function planJourney(
   if (opts.time) params.time = opts.time;
   if (opts.timeIs) params.timeIs = opts.timeIs === 'arriving' ? 'Arriving' : 'Departing';
 
-  let data: RawJourneyResponse;
   try {
-    data = await getJson<RawJourneyResponse>(
-      `/Journey/JourneyResults/${encodeURIComponent(from)}/to/${encodeURIComponent(to)}`,
-      params
-    );
-  } catch (e) {
-    throw new Error(
-      'Could not plan that journey. Try picking stops from the suggestions.'
-    );
+    let result = await fetchJourneyRaw(from, to, params);
+    if (result.status === 300 && result.body) {
+      const pick = (side: RawDisambiguationSide | undefined, fallback: string) =>
+        side?.disambiguationOptions?.[0]?.parameterValue ?? fallback;
+      const newFrom = pick(result.body.fromLocationDisambiguation, from);
+      const newTo = pick(result.body.toLocationDisambiguation, to);
+      if (newFrom !== from || newTo !== to) {
+        result = await fetchJourneyRaw(newFrom, newTo, params);
+      }
+    }
+    if (result.status >= 200 && result.status < 300 && result.body) {
+      return (result.body.journeys ?? []).map((j, i) => normaliseJourney(j, i));
+    }
+  } catch {
+    // fall through to the friendly error below
   }
-  return (data.journeys ?? []).map((j, i) => normaliseJourney(j, i));
+  throw new Error(
+    'Could not plan that journey. Try picking stops from the suggestions.'
+  );
 }
 
 /** Exported for unit testing. */

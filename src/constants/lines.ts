@@ -62,6 +62,29 @@ export const MODE_ICONS: Record<string, string> = {
 /** Modes requested for the Line Status screen. */
 export const STATUS_MODES = ['tube', 'dlr', 'overground', 'elizabeth-line', 'tram'];
 
+/** Lines selectable on the live train map (line id → display name). */
+export const TRACKED_LINES: { id: string; name: string }[] = [
+  { id: 'victoria', name: 'Victoria' },
+  { id: 'central', name: 'Central' },
+  { id: 'jubilee', name: 'Jubilee' },
+  { id: 'northern', name: 'Northern' },
+  { id: 'piccadilly', name: 'Piccadilly' },
+  { id: 'bakerloo', name: 'Bakerloo' },
+  { id: 'circle', name: 'Circle' },
+  { id: 'district', name: 'District' },
+  { id: 'hammersmith-city', name: 'H’smith & City' },
+  { id: 'metropolitan', name: 'Metropolitan' },
+  { id: 'waterloo-city', name: 'W’loo & City' },
+  { id: 'elizabeth', name: 'Elizabeth line' },
+  { id: 'dlr', name: 'DLR' },
+  { id: 'lioness', name: 'Lioness' },
+  { id: 'mildmay', name: 'Mildmay' },
+  { id: 'windrush', name: 'Windrush' },
+  { id: 'weaver', name: 'Weaver' },
+  { id: 'suffragette', name: 'Suffragette' },
+  { id: 'liberty', name: 'Liberty' },
+];
+
 export function lineColor(lineId?: string, mode?: TflMode): string {
   if (lineId && LINE_COLORS[lineId.toLowerCase()]) {
     return LINE_COLORS[lineId.toLowerCase()];

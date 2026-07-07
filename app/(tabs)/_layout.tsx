@@ -23,6 +23,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="trains"
+        options={{
+          title: 'Live',
+          headerTitle: 'Live trains',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="train" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="plan"
         options={{
           title: 'Plan',
