@@ -42,6 +42,9 @@ jobs:
       - name: Add SPA fallback
         run: cp dist/index.html dist/404.html
 
+      - name: Add static pages
+        run: cp public/privacy.html dist/privacy.html
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:

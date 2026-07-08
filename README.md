@@ -55,6 +55,53 @@ npm test                # Jest — TfL normalisation + train-position engine
 npm run typecheck
 ```
 
+## 📱 Publishing to the App Store & Play Store
+
+The repo is ready for a standalone build (bundle id `com.hoplondon.app`, icon,
+splash, `eas.json`) but shipping to the stores needs accounts and credentials
+only the account owner can create — here's the full runbook.
+
+### 1. One-time accounts (needs your own identity/payment)
+
+- **Apple Developer Program** — <https://developer.apple.com/programs/> ($99/yr).
+  Enrollment can take up to 48h to approve.
+- **Google Play Console** — <https://play.google.com/console/> ($25 one-time).
+  New personal accounts must run a 14-day closed test with 20+ opted-in
+  testers before Google allows a production release — plan for that lead time.
+- **Expo (EAS)** — free account at <https://expo.dev/signup>, used to build the
+  native binaries in the cloud.
+
+### 2. Log in and build
+
+```bash
+npm install -g eas-cli
+eas login                      # your Expo account
+eas build:configure            # links this project to your EAS account
+eas build --platform ios --profile production
+eas build --platform android --profile production
+```
+
+### 3. Submit
+
+```bash
+eas submit --platform ios       # needs an App Store Connect API key
+eas submit --platform android   # needs a Google Play service-account JSON key
+```
+
+Generate those credentials in App Store Connect (Users and Access → Keys) and
+the Play Console (Setup → API access) respectively — `eas submit` will prompt
+for them interactively the first time and remember them after.
+
+### 4. Store listing
+
+Both stores require a privacy policy since the app requests location — this
+repo publishes one automatically alongside the web app:
+**https://hugogonzmoreno-ui.github.io/ldn-map/privacy.html**
+
+You'll still need to supply, per store: screenshots (from a real device or
+simulator), a short/long description, category, and an age-rating
+questionnaire, then submit for review.
+
 ## 🔑 API key (optional)
 
 Works **without any key** at low request volumes. For higher limits, get a free
