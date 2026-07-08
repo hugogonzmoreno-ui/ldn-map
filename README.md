@@ -124,7 +124,7 @@ cp .env.example .env    # set EXPO_PUBLIC_TFL_APP_KEY=your_key
 
 | Concern        | Choice                                                          |
 | -------------- | --------------------------------------------------------------- |
-| Framework      | Expo SDK 52 (React Native) + TypeScript, expo-router tabs       |
+| Framework      | Expo SDK 54 (React Native) + TypeScript, expo-router tabs       |
 | Maps           | Native: `react-native-maps` + OSM tiles · Web: **Leaflet** + OSM |
 | Data           | TfL Unified API (keyless), `@tanstack/react-query` polling      |
 | Live arrivals  | 30s refetch + 10s local tick so countdowns keep moving          |
