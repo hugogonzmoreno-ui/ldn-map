@@ -86,7 +86,7 @@ export default function StatusScreen() {
               {TRACKED_LINES.some((l) => l.id === item.id) && (
                 <Pressable
                   hitSlop={8}
-                  onPress={() => router.push(`/(tabs)/trains?line=${item.id}`)}
+                  onPress={() => router.push(`/trains?line=${item.id}`)}
                 >
                   <Ionicons name="map-outline" size={20} color="#0057A8" />
                 </Pressable>

@@ -18,8 +18,26 @@ export default function RootLayout() {
             device in dark mode doesn't get inverted nav backgrounds/text. */}
         <ThemeProvider value={DefaultTheme}>
           <StatusBar style="dark" />
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: '#0019A8' },
+              headerTintColor: '#FFF',
+              headerTitleStyle: { fontWeight: '800' },
+            }}
+          >
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="plan"
+              options={{ title: 'Plan a journey', presentation: 'modal' }}
+            />
+            <Stack.Screen
+              name="status"
+              options={{ title: 'Line status', presentation: 'modal' }}
+            />
+            <Stack.Screen
+              name="trains"
+              options={{ title: 'Live trains', presentation: 'modal' }}
+            />
             <Stack.Screen
               name="journey/[id]"
               options={{ title: 'Journey', presentation: 'card' }}

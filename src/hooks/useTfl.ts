@@ -1,7 +1,7 @@
 // React Query hooks wrapping the TfL client. Polling intervals drive the
 // "real-time" feel: arrivals refresh every 30s, line status every 60s.
 
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import {
   getArrivals,
   getLineArrivals,
@@ -12,7 +12,8 @@ import {
   planJourney,
   searchStops,
 } from '@/services/tfl';
-import { STATUS_MODES } from '@/constants/lines';
+import { STATUS_MODES, TRACKED_LINES } from '@/constants/lines';
+import type { LineRoute } from '@/types/tfl';
 
 export function useNearbyStops(
   coords: { lat: number; lon: number } | null,
@@ -62,6 +63,27 @@ export function useLineRoute(lineId: string | null) {
     enabled: !!lineId,
     staleTime: Infinity,
     gcTime: 60 * 60_000,
+  });
+}
+
+/**
+ * Route geometry for the whole tracked network — powers the tube-map overlay
+ * on the home map. Shares the per-line 'lineRoute' cache with useLineRoute,
+ * so opening the live-train map later costs nothing extra. Each line renders
+ * as its geometry arrives.
+ */
+export function useNetworkRoutes(enabled = true): LineRoute[] {
+  return useQueries({
+    queries: TRACKED_LINES.map((line) => ({
+      queryKey: ['lineRoute', line.id],
+      queryFn: () => getLineRoute(line.id),
+      enabled,
+      staleTime: Infinity,
+      gcTime: 60 * 60_000,
+      retry: 1,
+    })),
+    combine: (results) =>
+      results.flatMap((r) => (r.data ? [r.data as LineRoute] : [])),
   });
 }
 

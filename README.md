@@ -5,11 +5,15 @@ tram & rail) in the spirit of Citymapper — built with **React Native + Expo** 
 powered by the live **TfL Unified API**. Runs natively on iOS/Android (Expo Go) and
 as a full web app in any browser.
 
-## ✨ Features (v2)
+## ✨ Features (v3)
 
-- **🗺️ Map + live arrivals** — interactive OpenStreetMap map with nearby
-  stops/stations (search included). Tap a stop for live arrivals: line badge,
-  destination, platform, and countdowns that tick down in real time. Big
+- **🗺️ One fluid map, Citymapper-style** — no tab bar: a full-screen map with
+  a floating "Where to?" search pill, action chips (Directions / Status with a
+  live disruption badge / Live trains / Lines), a draggable "Nearby stations"
+  sheet, and a locate-me button. The **whole tube network is drawn on the
+  map** — every Tube/Elizabeth/DLR/Overground line in its official colour
+  along its real geographic route, with station dots (interchanges ringed
+  dark) appearing as you zoom in; tap any station for live departures. Big
   interchanges (Canary Wharf, King's Cross…) aggregate arrivals from every
   station inside them.
 - **🚆 Live trains** — pick any Tube/Elizabeth/DLR/Overground line and watch its
