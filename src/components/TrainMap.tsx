@@ -7,6 +7,7 @@ import MapView, {
   UrlTile,
 } from 'react-native-maps';
 import { formatCountdown, stripStationSuffix } from '@/utils/format';
+import { regionForPoints } from '@/utils/geo';
 import type { LineRoute, TrainPosition } from '@/types/tfl';
 
 interface Props {
@@ -15,29 +16,16 @@ interface Props {
   color: string;
 }
 
+const LONDON_REGION = {
+  latitude: 51.5074,
+  longitude: -0.1278,
+  latitudeDelta: 0.35,
+  longitudeDelta: 0.35,
+};
+
 /** Region covering the whole route, with padding. */
 function regionForRoute(route?: LineRoute) {
-  const pts = route?.polylines.flat() ?? [];
-  if (pts.length === 0) {
-    return {
-      latitude: 51.5074,
-      longitude: -0.1278,
-      latitudeDelta: 0.35,
-      longitudeDelta: 0.35,
-    };
-  }
-  const lats = pts.map((p) => p.latitude);
-  const lons = pts.map((p) => p.longitude);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
-  return {
-    latitude: (minLat + maxLat) / 2,
-    longitude: (minLon + maxLon) / 2,
-    latitudeDelta: Math.max(0.02, (maxLat - minLat) * 1.2),
-    longitudeDelta: Math.max(0.02, (maxLon - minLon) * 1.2),
-  };
+  return regionForPoints(route?.polylines.flat() ?? []) ?? LONDON_REGION;
 }
 
 /** Native live-train map. Web equivalent: TrainMap.web.tsx. */
@@ -78,19 +66,18 @@ export default function TrainMap({ route, trains, color }: Props) {
             <View style={[styles.train, { backgroundColor: color }]} />
           </Marker>
         ))}
-        {(route?.sequences ?? []).flatMap((seq) =>
-          seq.stops.map((stop) => (
-            <Marker
-              key={`${seq.direction}-${stop.id}`}
-              coordinate={{ latitude: stop.lat, longitude: stop.lon }}
-              title={stripStationSuffix(stop.name)}
-              anchor={{ x: 0.5, y: 0.5 }}
-              tracksViewChanges={false}
-            >
-              <View style={[styles.station, { borderColor: color }]} />
-            </Marker>
-          ))
-        )}
+        {/* Pre-deduped stations: unique ids → stable, collision-free keys. */}
+        {(route?.stations ?? []).map((stop) => (
+          <Marker
+            key={stop.id}
+            coordinate={{ latitude: stop.lat, longitude: stop.lon }}
+            title={stripStationSuffix(stop.name)}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+          >
+            <View style={[styles.station, { borderColor: color }]} />
+          </Marker>
+        ))}
       </MapView>
       <Text style={styles.attribution}>© OpenStreetMap contributors</Text>
     </View>

@@ -23,7 +23,7 @@ export default function MapScreen() {
     // Show central London straight away so live data always loads, even if the
     // browser/device blocks or ignores the location prompt. We only *upgrade* to
     // the real position if geolocation succeeds.
-    setCoords((prev) => prev ?? { lat: LONDON.latitude, lon: LONDON.longitude });
+    setCoords({ lat: LONDON.latitude, lon: LONDON.longitude });
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -55,8 +55,9 @@ export default function MapScreen() {
     setQuery('');
     setSelected(stop);
     // Jump the map (and the nearby-stops query) to the searched stop. Search
-    // matches occasionally lack coordinates — keep the current view then.
-    if (stop.lat && stop.lon) {
+    // matches missing coordinates are normalised to (0,0) — keep the current
+    // view then. (Test both: London straddles longitude 0.)
+    if (stop.lat !== 0 || stop.lon !== 0) {
       setCoords({ lat: stop.lat, lon: stop.lon });
     }
   }, []);
@@ -68,9 +69,6 @@ export default function MapScreen() {
         stops={stops ?? []}
         onSelectStop={setSelected}
         showsUser={!!coords}
-        isLoading={isLoading}
-        isError={isError}
-        onRetry={refetch}
       />
 
       <SafeAreaView style={styles.searchWrap} edges={['top']} pointerEvents="box-none">

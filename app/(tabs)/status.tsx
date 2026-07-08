@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -99,7 +100,10 @@ export default function StatusScreen() {
       )}
       contentContainerStyle={{ paddingBottom: 32 }}
       ListFooterComponent={
-        <Text style={styles.footer}>Hop London v2.0 · Powered by TfL Open Data</Text>
+        <Text style={styles.footer}>
+          Hop London v{Constants.expoConfig?.version ?? '?'} · Powered by TfL Open
+          Data
+        </Text>
       }
     />
   );

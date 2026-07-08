@@ -20,6 +20,7 @@ export default function TrainMap({ route, trains, color }: Props) {
   const mapRef = useRef<L.Map | null>(null);
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
   const trainLayerRef = useRef<L.LayerGroup | null>(null);
+  const trainMarkersRef = useRef<Map<string, L.CircleMarker>>(new Map());
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -40,6 +41,7 @@ export default function TrainMap({ route, trains, color }: Props) {
       mapRef.current = null;
       routeLayerRef.current = null;
       trainLayerRef.current = null;
+      trainMarkersRef.current.clear();
     };
   }, []);
 
@@ -59,41 +61,59 @@ export default function TrainMap({ route, trains, color }: Props) {
       all.push(...coords);
       L.polyline(coords, { color, weight: 4, opacity: 0.85 }).addTo(layer);
     });
-    route.sequences.forEach((seq) =>
-      seq.stops.forEach((stop) => {
-        L.circleMarker([stop.lat, stop.lon], {
-          radius: 3.5,
-          color,
-          weight: 2,
-          fillColor: '#FFFFFF',
-          fillOpacity: 1,
-        })
-          .bindTooltip(stripStationSuffix(stop.name))
-          .addTo(layer);
+    // Stations come pre-deduped (loop lines repeat stops within a sequence).
+    route.stations.forEach((stop) => {
+      L.circleMarker([stop.lat, stop.lon], {
+        radius: 3.5,
+        color,
+        weight: 2,
+        fillColor: '#FFFFFF',
+        fillOpacity: 1,
       })
-    );
+        .bindTooltip(stripStationSuffix(stop.name))
+        .addTo(layer);
+    });
     if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.05));
+    // A new line invalidates the per-vehicle markers.
+    trainMarkersRef.current.forEach((m) => m.remove());
+    trainMarkersRef.current.clear();
+    trainLayerRef.current?.clearLayers();
   }, [route, color]);
 
-  // Redraw train markers every refresh.
+  // Diff train markers by vehicleId each refresh: existing trains glide to
+  // their new position instead of the whole layer being rebuilt (no flicker).
   useEffect(() => {
     const layer = trainLayerRef.current;
     if (!layer) return;
-    layer.clearLayers();
+    const markers = trainMarkersRef.current;
+    const seen = new Set<string>();
     trains.forEach((train) => {
-      L.circleMarker([train.lat, train.lon], {
+      seen.add(train.vehicleId);
+      const tooltip = `🚆 → ${train.towards}<br/>${train.label}<br/>${formatCountdown(
+        train.timeToNext
+      )} to ${train.nextStopName}`;
+      const existing = markers.get(train.vehicleId);
+      if (existing) {
+        existing.setLatLng([train.lat, train.lon]);
+        existing.setTooltipContent(tooltip);
+        return;
+      }
+      const marker = L.circleMarker([train.lat, train.lon], {
         radius: 8,
         color: '#FFFFFF',
         weight: 3,
         fillColor: color,
         fillOpacity: 1,
       })
-        .bindTooltip(
-          `🚆 → ${train.towards}<br/>${train.label}<br/>${formatCountdown(
-            train.timeToNext
-          )} to ${train.nextStopName}`
-        )
+        .bindTooltip(tooltip)
         .addTo(layer);
+      markers.set(train.vehicleId, marker);
+    });
+    markers.forEach((marker, id) => {
+      if (!seen.has(id)) {
+        marker.remove();
+        markers.delete(id);
+      }
     });
   }, [trains, color]);
 

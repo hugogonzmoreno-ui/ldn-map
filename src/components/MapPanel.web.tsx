@@ -9,17 +9,13 @@ interface Props {
   stops: Stop[];
   onSelectStop: (stop: Stop) => void;
   showsUser: boolean;
-  isLoading?: boolean;
-  isError?: boolean;
-  onRetry?: () => void;
 }
 
 /**
  * Real interactive map for the web build, using Leaflet + free OpenStreetMap
  * tiles. On Expo web the renderer is react-dom, so this `.web.tsx` file can
  * return real DOM and drive Leaflet directly. Native uses `MapPanel.tsx`.
- * Loading/error banners are rendered by the screen (like on native), so the
- * isLoading/isError/onRetry props are accepted but unused here.
+ * Loading/error banners are rendered by the screen (like on native).
  */
 export default function MapPanel({ region, stops, onSelectStop }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);

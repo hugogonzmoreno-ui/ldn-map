@@ -20,10 +20,11 @@ import {
   RawSearchResponse,
   RawStopPoint,
   RawStopPointsResponse,
+  RouteStop,
   Stop,
   TflMode,
 } from '@/types/tfl';
-import { decodeLineString } from '@/utils/format';
+import { decodeLineString, stripStationSuffix } from '@/utils/format';
 import { decodeRouteLineStrings } from '@/utils/trains';
 
 const BASE_URL = 'https://api.tfl.gov.uk';
@@ -167,15 +168,17 @@ async function getChildStopIds(stopId: string): Promise<string[]> {
 }
 
 /**
- * Live arrival predictions for a stop, soonest first. If the stop itself has
- * no predictions (typical for hubs / parent interchanges), aggregate the
- * arrivals of its child stations instead.
+ * Live arrival predictions for a stop, soonest first. Hubs / parent
+ * interchanges (HUB… ids) hold their real arrivals on their child stations,
+ * so for hubs — or any stop that reports nothing itself — aggregate the
+ * children's arrivals too (deduped against anything the stop did report).
  */
 export async function getArrivals(stopId: string): Promise<Arrival[]> {
   let predictions = await getJson<RawPrediction[]>(
     `/StopPoint/${encodeURIComponent(stopId)}/Arrivals`
   );
-  if (predictions.length === 0) {
+  const isHub = stopId.toUpperCase().startsWith('HUB');
+  if (isHub || predictions.length === 0) {
     // Cap fan-out to keep well within keyless rate limits.
     const childIds = (await getChildStopIds(stopId)).slice(0, 8);
     if (childIds.length > 0) {
@@ -186,15 +189,19 @@ export async function getArrivals(stopId: string): Promise<Arrival[]> {
           ).catch(() => [] as RawPrediction[])
         )
       );
-      const seen = new Set<string>();
-      predictions = results.flat().filter((p) => {
-        if (seen.has(p.id)) return false;
-        seen.add(p.id);
-        return true;
-      });
+      const seen = new Set<string>(predictions.map((p) => p.id));
+      predictions = predictions.concat(
+        results.flat().filter((p) => {
+          if (seen.has(p.id)) return false;
+          seen.add(p.id);
+          return true;
+        })
+      );
     }
   }
   return predictions
+    // A prediction without a numeric countdown would masquerade as "Due".
+    .filter((p) => p.timeToStation != null)
     .map((p) => normaliseArrival(p))
     .sort((a, b) => a.timeToStation - b.timeToStation);
 }
@@ -205,9 +212,8 @@ export function normaliseArrival(p: RawPrediction): Arrival {
     id: p.id,
     lineId: p.lineId ?? '',
     lineName: p.lineName ?? '',
-    destinationName: (p.destinationName ?? p.towards ?? 'Check front of vehicle').replace(
-      / Underground Station| Rail Station| DLR Station/i,
-      ''
+    destinationName: stripStationSuffix(
+      p.destinationName ?? p.towards ?? 'Check front of vehicle'
     ),
     platformName: p.platformName ?? '',
     towards: p.towards ?? '',
@@ -254,13 +260,16 @@ export async function getLineRoute(lineId: string): Promise<LineRoute> {
   const sequences = (data.stopPointSequences ?? []).map((seq) => ({
     direction: seq.direction ?? '',
     stops: (seq.stopPoint ?? [])
+      // Real coordinates only — London straddles longitude 0, so test for
+      // missing fields rather than falsy values.
+      .filter((p) => p.lat != null && p.lon != null && (p.stationId || p.id))
       .map((p) => ({
         id: p.stationId ?? p.id ?? '',
+        altId: p.id && p.id !== p.stationId ? p.id : undefined,
         name: p.name ?? '',
-        lat: p.lat ?? 0,
-        lon: p.lon ?? 0,
-      }))
-      .filter((s) => s.id !== '' && s.lat !== 0 && s.lon !== 0),
+        lat: p.lat!,
+        lon: p.lon!,
+      })),
   }));
   let polylines = decodeRouteLineStrings(data.lineStrings);
   if (polylines.length === 0) {
@@ -269,7 +278,11 @@ export async function getLineRoute(lineId: string): Promise<LineRoute> {
       .map((s) => s.stops.map((st) => ({ latitude: st.lat, longitude: st.lon })))
       .filter((line) => line.length > 1);
   }
-  return { lineId, polylines, sequences };
+  // One entry per physical station (sequences repeat them per direction, and
+  // loop lines repeat them within a direction) for rendering markers once.
+  const byId = new Map<string, RouteStop>();
+  sequences.forEach((s) => s.stops.forEach((st) => byId.set(st.id, st)));
+  return { lineId, polylines, sequences, stations: [...byId.values()] };
 }
 
 /** Every live arrival prediction on a line (one per train per upcoming stop). */

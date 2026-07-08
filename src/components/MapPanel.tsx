@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import MapView, {
   Marker,
   PROVIDER_DEFAULT,
@@ -13,17 +14,12 @@ interface Props {
   stops: Stop[];
   onSelectStop: (stop: Stop) => void;
   showsUser: boolean;
-  // Accepted for parity with the web map (which shows a loading/error banner);
-  // on native the map itself is always visible so these are unused.
-  isLoading?: boolean;
-  isError?: boolean;
-  onRetry?: () => void;
 }
 
 /**
  * Native map: Apple/Google base with a free OpenStreetMap raster tile overlay
  * (keyless), plus a coloured marker per nearby stop. Metro loads this file on
- * iOS/Android; `MapPanel.web.tsx` provides a list fallback for web.
+ * iOS/Android; `MapPanel.web.tsx` is the Leaflet twin for web.
  */
 export default function MapPanel({
   region,
@@ -31,9 +27,18 @@ export default function MapPanel({
   onSelectStop,
   showsUser,
 }: Props) {
+  const mapRef = useRef<MapView | null>(null);
+
+  // Follow region changes (GPS resolving, searched stop) like the web twin.
+  useEffect(() => {
+    mapRef.current?.animateToRegion(region, 400);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [region.latitude, region.longitude]);
+
   return (
     <View style={StyleSheet.absoluteFill}>
       <MapView
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         provider={PROVIDER_DEFAULT}
         initialRegion={region}

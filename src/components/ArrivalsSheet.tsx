@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ArrivalRow from './ArrivalRow';
+import { useNowTicker } from '@/hooks/useNowTicker';
 import { useArrivals } from '@/hooks/useTfl';
 import { modeColor, modeIcon } from '@/constants/lines';
 import type { Stop } from '@/types/tfl';
@@ -30,13 +30,7 @@ export default function ArrivalsSheet({ stop, onClose }: Props) {
     useArrivals(stop?.id ?? null);
 
   // Tick every 10s so countdowns visibly decrease between the 30s refetches.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!stop) return;
-    setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 10_000);
-    return () => clearInterval(t);
-  }, [stop]);
+  const now = useNowTicker(10_000, !!stop);
   const elapsedSec = dataUpdatedAt ? Math.max(0, (now - dataUpdatedAt) / 1000) : 0;
 
   return (

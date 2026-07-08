@@ -13,13 +13,13 @@ export default function RouteMiniMap({ legs }: { legs: JourneyLeg[] }) {
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, {
       zoomControl: false,
-      attributionControl: false,
       dragging: false,
       scrollWheelZoom: false,
       doubleClickZoom: false,
     });
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
+      attribution: '© OpenStreetMap contributors',
     }).addTo(map);
     mapRef.current = map;
     setTimeout(() => map.invalidateSize(), 0);
@@ -34,7 +34,7 @@ export default function RouteMiniMap({ legs }: { legs: JourneyLeg[] }) {
     const map = mapRef.current;
     if (!map) return;
     const all: L.LatLngExpression[] = [];
-    const drawn: L.Polyline[] = [];
+    const drawn: L.Layer[] = [];
     legs.forEach((leg) => {
       if (leg.path.length < 2) return;
       const coords = leg.path.map(
@@ -52,12 +52,14 @@ export default function RouteMiniMap({ legs }: { legs: JourneyLeg[] }) {
     if (all.length) {
       const start = all[0];
       const end = all[all.length - 1];
-      L.circleMarker(start, { radius: 6, color: '#0A7A0A', fillOpacity: 1 }).addTo(map);
-      L.circleMarker(end, { radius: 6, color: '#B00020', fillOpacity: 1 }).addTo(map);
+      drawn.push(
+        L.circleMarker(start, { radius: 6, color: '#0A7A0A', fillOpacity: 1 }).addTo(map),
+        L.circleMarker(end, { radius: 6, color: '#B00020', fillOpacity: 1 }).addTo(map)
+      );
       map.fitBounds(L.latLngBounds(all).pad(0.2));
     }
     return () => {
-      drawn.forEach((p) => p.remove());
+      drawn.forEach((layer) => layer.remove());
     };
   }, [legs]);
 

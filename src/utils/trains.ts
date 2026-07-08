@@ -63,9 +63,30 @@ interface StopMatch {
   index: number;
 }
 
+function stopMatches(stop: RouteStop, prediction: RawPrediction): boolean {
+  if (prediction.naptanId) {
+    if (stop.id === prediction.naptanId || stop.altId === prediction.naptanId) {
+      return true;
+    }
+  }
+  // Route stops and predictions suffix names differently — compare stripped.
+  return (
+    !!prediction.stationName &&
+    stripStationSuffix(stop.name) === stripStationSuffix(prediction.stationName)
+  );
+}
+
+/**
+ * Locate the prediction's station within the route sequences. Sequences for
+ * the prediction's direction are preferred; among several candidates (a trunk
+ * station shared by branches), pick the sequence containing the most of the
+ * vehicle's OTHER upcoming stops — the train's own itinerary identifies its
+ * branch.
+ */
 function findStop(
   sequences: RouteSequence[],
-  prediction: RawPrediction
+  prediction: RawPrediction,
+  vehicleStopIds: Set<string>
 ): StopMatch | null {
   const direction = prediction.direction;
   const ordered = direction
@@ -74,17 +95,23 @@ function findStop(
         ...sequences.filter((s) => s.direction !== direction),
       ]
     : sequences;
+
+  let best: StopMatch | null = null;
+  let bestScore = -1;
   for (const sequence of ordered) {
-    const byId = prediction.naptanId
-      ? sequence.stops.findIndex((st) => st.id === prediction.naptanId)
-      : -1;
-    if (byId >= 0) return { sequence, index: byId };
-    const byName = prediction.stationName
-      ? sequence.stops.findIndex((st) => st.name === prediction.stationName)
-      : -1;
-    if (byName >= 0) return { sequence, index: byName };
+    const index = sequence.stops.findIndex((st) => stopMatches(st, prediction));
+    if (index < 0) continue;
+    const score = sequence.stops.reduce(
+      (n, st) =>
+        n + (vehicleStopIds.has(st.id) || (st.altId && vehicleStopIds.has(st.altId)) ? 1 : 0),
+      0
+    );
+    if (score > bestScore) {
+      best = { sequence, index };
+      bestScore = score;
+    }
   }
-  return null;
+  return best;
 }
 
 function lerp(from: RouteStop, to: RouteStop, fraction: number): LatLng {
@@ -116,7 +143,10 @@ export function computeTrainPositions(
     const next = preds.reduce((a, b) =>
       (a.timeToStation ?? Infinity) <= (b.timeToStation ?? Infinity) ? a : b
     );
-    const match = findStop(route.sequences, next);
+    const vehicleStopIds = new Set(
+      preds.map((p) => p.naptanId).filter((id): id is string => !!id)
+    );
+    const match = findStop(route.sequences, next, vehicleStopIds);
     if (!match) return;
 
     const { sequence, index } = match;

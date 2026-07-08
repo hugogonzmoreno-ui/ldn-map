@@ -81,6 +81,49 @@ describe('getArrivals hub fallback', () => {
     expect(requested.some((u) => u.includes('ENTRANCE'))).toBe(false);
   });
 
+  it('aggregates children even when the hub reports partial arrivals itself, deduped', async () => {
+    const dlrPred = (id: string, timeToStation: number): RawPrediction => ({
+      id,
+      lineName: 'DLR',
+      destinationName: 'Lewisham',
+      timeToStation,
+      modeName: 'dlr',
+    });
+    const respond = (url: string): unknown => {
+      if (url.includes('/StopPoint/HUBX/Arrivals')) return [dlrPred('direct', 300)];
+      if (url.includes('/StopPoint/HUBX'))
+        return {
+          id: 'HUBX',
+          stopType: 'TransportInterchange',
+          children: [{ id: '940CHILD', stopType: 'NaptanMetroStation' }],
+        };
+      if (url.includes('/StopPoint/940CHILD/Arrivals'))
+        // 'direct' also appears at the child — must not duplicate.
+        return [dlrPred('direct', 300), dlrPred('child-only', 60)];
+      throw new Error(`unexpected url ${url}`);
+    };
+    global.fetch = jest.fn(async (url: string) => ({
+      ok: true,
+      json: async () => respond(url),
+    })) as never;
+
+    const arrivals = await getArrivals('HUBX');
+    expect(arrivals.map((a) => a.id)).toEqual(['child-only', 'direct']);
+  });
+
+  it('drops predictions without a numeric timeToStation (no phantom "Due")', async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => [
+        { id: 'no-time', lineName: 'X', destinationName: 'Y' },
+        { id: 'timed', lineName: 'X', destinationName: 'Y', timeToStation: 120 },
+      ],
+    })) as never;
+
+    const arrivals = await getArrivals('940GZZLUVIC');
+    expect(arrivals.map((a) => a.id)).toEqual(['timed']);
+  });
+
   it('does not fetch children when the stop has its own arrivals', async () => {
     const fetchMock = jest.fn(async () => ({
       ok: true,

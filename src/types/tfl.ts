@@ -216,6 +216,8 @@ export interface LatLng {
 
 export interface RouteStop {
   id: string;
+  /** Secondary id when Route/Sequence supplies both stationId and id. */
+  altId?: string;
   name: string;
   lat: number;
   lon: number;
@@ -231,6 +233,8 @@ export interface LineRoute {
   lineId: string;
   polylines: LatLng[][];
   sequences: RouteSequence[];
+  /** All stations on the line, deduped by id (for rendering markers once). */
+  stations: RouteStop[];
 }
 
 /** A live train position derived from its arrival predictions. */

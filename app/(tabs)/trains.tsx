@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import TrainMap from '@/components/TrainMap';
 import { contrastText, lineColor, TRACKED_LINES } from '@/constants/lines';
+import { useNowTicker } from '@/hooks/useNowTicker';
 import { useLineArrivals, useLineRoute } from '@/hooks/useTfl';
 import { computeTrainPositions } from '@/utils/trains';
 
@@ -41,12 +42,13 @@ export default function TrainsScreen() {
   );
 
   // "Updated Xs ago" ticker.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 5_000);
-    return () => clearInterval(t);
-  }, []);
+  const now = useNowTicker(5_000);
   const agoSec = dataUpdatedAt ? Math.max(0, Math.round((now - dataUpdatedAt) / 1000)) : null;
+
+  // Some feeds (notably DLR) report placeholder vehicle ids, so positions
+  // can't be derived even though the line is running — say so honestly.
+  const positionsUnavailable =
+    (predictions?.length ?? 0) > 0 && trains.length === 0;
 
   return (
     <View style={styles.container}>
@@ -85,6 +87,13 @@ export default function TrainsScreen() {
                 Couldn’t reach TfL — tap to retry
               </Text>
             </Pressable>
+          ) : positionsUnavailable ? (
+            <View style={styles.statusInner}>
+              <Ionicons name="information-circle" size={14} color="#888" />
+              <Text style={styles.statusText}>
+                Live positions aren’t available for this line
+              </Text>
+            </View>
           ) : (
             <View style={styles.statusInner}>
               <View style={[styles.liveDot, { backgroundColor: color }]} />

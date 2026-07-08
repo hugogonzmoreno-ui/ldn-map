@@ -31,6 +31,7 @@ describe('decodeRouteLineStrings', () => {
 const route: LineRoute = {
   lineId: 'victoria',
   polylines: [],
+  stations: [],
   sequences: [
     {
       direction: 'outbound',
@@ -115,6 +116,76 @@ describe('computeTrainPositions', () => {
       route
     );
     expect(dropped).toHaveLength(0);
+  });
+
+  it('matches stops by altId and by suffix-stripped name', () => {
+    const altRoute: LineRoute = {
+      lineId: 'elizabeth',
+      polylines: [],
+      stations: [],
+      sequences: [
+        {
+          direction: 'outbound',
+          stops: [
+            { id: 'ST1', altId: 'NAP1', name: 'Delta Rail Station', lat: 51.5, lon: 0.1 },
+            { id: 'ST2', altId: 'NAP2', name: 'Echo Rail Station', lat: 51.52, lon: 0.12 },
+          ],
+        },
+      ],
+    };
+    // naptanId matches only via altId.
+    const byAlt = computeTrainPositions(
+      [pred({ naptanId: 'NAP2', stationName: undefined, timeToStation: 10 })],
+      altRoute
+    );
+    expect(byAlt).toHaveLength(1);
+    expect(byAlt[0].lat).toBe(51.52);
+
+    // No id match at all; names differ only by station-type suffix.
+    const byName = computeTrainPositions(
+      [pred({ naptanId: 'ZZZ', stationName: 'Echo Underground Station', timeToStation: 10 })],
+      altRoute
+    );
+    expect(byName).toHaveLength(1);
+    expect(byName[0].lat).toBe(51.52);
+  });
+
+  it("uses the vehicle's other stops to pick the right branch at a shared trunk station", () => {
+    const branched: LineRoute = {
+      lineId: 'northern',
+      polylines: [],
+      stations: [],
+      sequences: [
+        {
+          direction: 'outbound',
+          stops: [
+            { id: 'XA', name: 'Branch A Prev', lat: 51.0, lon: -0.1 },
+            { id: 'T', name: 'Trunk', lat: 51.5, lon: -0.1 },
+            { id: 'A2', name: 'Branch A Next', lat: 51.6, lon: -0.1 },
+          ],
+        },
+        {
+          direction: 'outbound',
+          stops: [
+            { id: 'XB', name: 'Branch B Prev', lat: 52.0, lon: -0.1 },
+            { id: 'T', name: 'Trunk', lat: 51.5, lon: -0.1 },
+            { id: 'B2', name: 'Branch B Next', lat: 51.4, lon: -0.1 },
+          ],
+        },
+      ],
+    };
+    // Next stop is the shared trunk (60s away → halfway from the previous
+    // stop); the vehicle's later prediction at B2 identifies branch B.
+    const trains = computeTrainPositions(
+      [
+        pred({ naptanId: 'T', timeToStation: 60 }),
+        pred({ naptanId: 'B2', timeToStation: 240 }),
+      ],
+      branched
+    );
+    expect(trains).toHaveLength(1);
+    // Halfway between XB (52.0) and T (51.5), NOT between XA (51.0) and T.
+    expect(trains[0].lat).toBeCloseTo(51.75, 5);
   });
 
   it('groups predictions per vehicle', () => {

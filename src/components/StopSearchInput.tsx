@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -32,6 +32,13 @@ export default function StopSearchInput({
   onUseLocation,
 }: Props) {
   const [focused, setFocused] = useState(false);
+  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (blurTimer.current) clearTimeout(blurTimer.current);
+    },
+    []
+  );
   const { data, isFetching } = useStopSearch(value);
   const showResults = focused && value.trim().length >= 2;
 
@@ -46,7 +53,10 @@ export default function StopSearchInput({
           value={value}
           onChangeText={onChangeText}
           onFocus={() => setFocused(true)}
-          onBlur={() => setTimeout(() => setFocused(false), 250)}
+          onBlur={() => {
+            // Delay so a tap on a suggestion (onPressIn) lands first.
+            blurTimer.current = setTimeout(() => setFocused(false), 250);
+          }}
           autoCorrect={false}
         />
         {isFetching && showResults && <ActivityIndicator size="small" />}
