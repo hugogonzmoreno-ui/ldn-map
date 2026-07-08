@@ -5,6 +5,9 @@
     "version": "2.0.0",
     "orientation": "portrait",
     "scheme": "hoplondon",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "icon": "./assets/icon.png",

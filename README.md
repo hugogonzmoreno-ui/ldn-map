@@ -38,7 +38,16 @@ Pages** via `.github/workflows/deploy-web.yml`:
 > repo public (Settings → General → Danger Zone) or upgrade the plan, then
 > re-run the workflow.
 
-### On your phone (native, via Expo Go)
+### On your phone (native, via Expo Go — zero setup)
+
+Every push also publishes the app to **EAS Update** via
+`.github/workflows/eas-update.yml` (requires the `EXPO_TOKEN` repository
+secret — an access token from <https://expo.dev/settings/access-tokens>).
+Open **Expo Go**, sign in with the same Expo account, and the app appears
+under **Projects** — tap it and it runs, no dev server needed. New pushes
+land on the phone the next time the app is opened.
+
+### On your phone (native, via a dev server)
 
 ```bash
 npm install

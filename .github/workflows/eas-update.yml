@@ -1,0 +1,70 @@
+name: Publish to EAS Update (Expo Go)
+
+# Publishes the JS bundle to EAS Update so the app can be opened in Expo Go
+# from anywhere — no dev server or tunnel needed. Runs on every push; skips
+# itself politely until the EXPO_TOKEN repository secret exists
+# (Settings → Secrets and variables → Actions → New repository secret).
+
+on:
+  push:
+    branches:
+      - claude/tfl-realtime-transport-app-dj65l2
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: eas-update
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for EXPO_TOKEN
+        id: token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "EXPO_TOKEN secret not set — skipping EAS publish." >> "$GITHUB_STEP_SUMMARY"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.ok == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.ok == 'true'
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.token.outputs.ok == 'true'
+        run: npm ci
+
+      - name: Link (or create) the EAS project
+        if: steps.token.outputs.ok == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli@latest init --force --non-interactive
+
+      - name: Point updates at the project
+        if: steps.token.outputs.ok == 'true'
+        run: |
+          PROJECT_ID=$(npx expo config --json | jq -r '.extra.eas.projectId')
+          echo "EAS project id: $PROJECT_ID"
+          tmp=$(mktemp)
+          jq --arg url "https://u.expo.dev/$PROJECT_ID" \
+            '.expo.updates.url = $url' app.json > "$tmp" && mv "$tmp" app.json
+
+      - name: Publish update
+        if: steps.token.outputs.ok == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx eas-cli@latest update --branch main \
+            --message "${GITHUB_SHA:0:7}: ${GITHUB_REF_NAME}" \
+            --non-interactive

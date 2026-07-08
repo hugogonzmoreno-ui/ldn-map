@@ -23,6 +23,7 @@
     "expo-router": "~4.0.0",
     "expo-status-bar": "~2.0.0",
     "expo-system-ui": "~4.0.0",
+    "expo-updates": "~0.27.5",
     "leaflet": "^1.9.4",
     "react": "18.3.1",
     "react-dom": "^18.3.1",
